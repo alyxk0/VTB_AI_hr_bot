@@ -1,18 +1,22 @@
-# AI_HR Track Project for MoreTech VTB
+# Проект для трека AI_HR — MoreTech от ВТБ 🚀
 
-This project is part of the AI_HR track for the MORE.Tech hackathon, an event associated with VTB Bank that attracts thousands of specialists from across Russia .
+Этот проект создан для хакатона **MORE.Tech** от **ВТБ** по направлению **AI_HR** — где ИИ помогает HR-специалистам работать умнее и быстрее 💡.
 
-## Overview
-The application is a Flask-based web service designed to handle HR-related AI tasks. It leverages technologies for real-time communication, document processing, and database interaction.
+## Технологии и возможности
 
-## Key Features & Technologies
+- **Фреймворк:** Flask  
+- **Реальное время:** Flask-SocketIO ⚡  
+- **ИИ:** OpenAI API — анализ, генерация, понимание текста 🤖  
+- **База данных:** Supabase — хранение данных и сессий 🗄️  
+- **Работа с документами:**  
+  - PyPDF2 — чтение PDF 📄  
+  - python-docx — обработка DOCX 📑  
+- **Вспомогательные инструменты:**  
+  - UUID — уникальные ID  
+  - tempfile — временные файлы  
+  - logging — контроль и отладка 📝  
+  - JSON, Base64 — обмен данными  
 
-*   **Web Framework:** Flask
-*   **Real-time Communication:** Flask-SocketIO
-*   **AI Integration:** OpenAI API
-*   **Database:** Supabase (via `supabase` client)
-*   **Document Processing:** PyPDF2 (PDF), python-docx (DOCX)
-*   **Utilities:** UUID generation, temporary file handling, JSON processing, Base64 encoding, logging.
-*   **Session/Request Handling:** Manages user interactions and file uploads.
+## Цель
 
-The project focuses on building an AI-powered solution relevant to Human Resources processes within the context of the VTB MoreTech competition.
+Разработать AI-решение для автоматизации HR-процессов — от анализа резюме до подбора кандидатов — и успешно выступить в треке AI_HR на MoreTech 🏆.
