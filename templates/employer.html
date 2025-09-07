@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>ВТБ HR • Панель Работодателя</title>
+
+  <!-- external libs -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <style>
+    :root{
+      --vtb-dark:#003366;
+      --vtb-mid:#005dbf;
+      --vtb-accent:#00a7ff;
+      --bg:#f6f9fc;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --glass: rgba(255,255,255,0.6);
+    }
+
+    /* Reset + base */
+    html,body { height:100%; }
+    body{
+      margin:0;
+      font-family: Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(180deg,#eef6ff 0%, var(--bg) 60%);
+      color:#0f1724;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      transition: background .35s, color .35s;
+    }
+
+    /* Layout */
+    .app {
+      display:grid;
+      grid-template-columns: 84px 1fr;
+      min-height:100vh;
+      gap:28px;
+      align-items:start;
+      padding:28px;
+    }
+
+    /* Slim sidebar */
+    .nav-rail {
+      background: linear-gradient(180deg,var(--vtb-dark),var(--vtb-mid));
+      border-radius:18px;
+      padding:18px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+      box-shadow: 0 10px 30px rgba(3,30,66,0.18);
+      align-items:center;
+    }
+    .brand {
+      width:56px;
+      height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:12px;
+      background:linear-gradient(120deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      box-shadow: inset 0 -6px 18px rgba(0,0,0,0.12);
+      overflow: hidden;
+      padding: 5px;
+    }
+    .brand img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: brightness(0) invert(1); /* Делаем лого белым */
+    }
+
+    .rail-btn {
+      width:56px;
+      height:56px;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#e6f2ff;
+      background:transparent;
+      border:none;
+      transition: all .22s;
+      cursor:pointer;
+      font-size:18px;
+    }
+    .rail-btn:hover {
+      transform: translateY(-6px) scale(1.04);
+      box-shadow: 0 8px 18px rgba(0,91,191,0.14);
+      background: rgba(255,255,255,0.04);
+      color: white;
+    }
+    .rail-label { font-size:11px; color:rgba(255,255,255,0.9); margin-top:6px; text-align:center; font-weight:600; letter-spacing:0.6px; }
+
+    /* Main area */
+    .main {
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+    }
+    .header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .page-title {
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .page-title h1 {
+      margin:0;
+      font-size:20px;
+      letter-spacing:0.2px;
+      color:var(--vtb-dark);
+      font-weight:700;
+    }
+    .page-sub { color:var(--muted); font-size:13px; margin-top:4px; }
+
+    /* Header controls */
+    .controls { display:flex; gap:10px; align-items:center; }
+    .search {
+      min-width:260px;
+      background:var(--card);
+      border-radius:12px;
+      padding:8px 12px;
+      box-shadow: 0 6px 18px rgba(16,24,40,0.06);
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .search input { border:none; outline:none; width:100%; font-size:14px; background:transparent; }
+
+    /* Grid */
+    .grid {
+      display:grid;
+      grid-template-columns: 1fr 420px;
+      gap:18px;
+      align-items:start;
+    }
+
+    /* Cards */
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.72));
+      border-radius:14px;
+      padding:18px;
+      box-shadow: 0 10px 30px rgba(11,30,69,0.06);
+      transition: transform .22s, box-shadow .22s;
+      overflow:hidden;
+    }
+    .card:hover { transform: translateY(-4px); box-shadow:0 18px 40px rgba(11,30,69,0.08); }
+    .card .title { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .card .title h3 { margin:0; font-size:15px; color:var(--vtb-dark); font-weight:700; }
+    .muted { color:var(--muted); font-size:13px; }
+
+    /* Fancy action button */
+    .btn-vtb {
+      background: linear-gradient(90deg,var(--vtb-mid),var(--vtb-accent));
+      color:white;
+      border:none;
+      padding:8px 14px;
+      border-radius:10px;
+      font-weight:600;
+      box-shadow: 0 8px 22px rgba(0,93,191,0.14);
+      transition: transform .18s, box-shadow .18s;
+    }
+    .btn-vtb:hover { transform: translateY(-3px); box-shadow: 0 18px 36px rgba(0,93,191,0.2); }
+
+    /* Tables area */
+    .table-wrap { overflow:auto; border-radius:10px; padding:6px; background:linear-gradient(180deg, rgba(0,0,0,0.01), rgba(0,0,0,0.01)); }
+    table.dataTable thead th { background:transparent; color:var(--vtb-dark); font-weight:700; border-bottom:0; }
+    table.dataTable thead { border:none; }
+    table.dataTable tbody tr:hover { background: rgba(0,91,191,0.03); }
+
+    /* Right column mini-cards */
+    .stat {
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+    .stat .icon {
+      width:56px; height:56px; border-radius:12px;
+      background: linear-gradient(180deg, rgba(0,91,191,0.12), rgba(0,167,255,0.06));
+      display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--vtb-mid);
+    }
+    .stat .info { font-weight:700; font-size:18px; color:var(--vtb-dark); }
+    .stat .sub { color:var(--muted); font-size:12px; font-weight:600; }
+
+    /* Toasts */
+    #toasts { position:fixed; top:22px; right:22px; z-index:2100; }
+
+    /* Dark mode tweak */
+    .dark {
+      --bg: #081026;
+      --card: #0f1724;
+      --vtb-dark: #a7d9ff;
+      --vtb-mid: #0073cf;
+      --vtb-accent: #00c2ff;
+      --muted:#9aa4b2;
+      background: linear-gradient(180deg,#021226,#071a2a);
+      color: #e6eefc;
+    }
+
+    /* Responsive */
+    @media (max-width:1100px){
+      .app { grid-template-columns: 72px 1fr; padding:18px; gap:18px; }
+      .grid { grid-template-columns: 1fr; }
+      .main { gap:12px; }
+      .search { min-width: 160px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- NAV RAIL -->
+    <nav class="nav-rail" role="navigation" aria-label="Навигация">
+      <div class="brand" title="ВТБ">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/VTB_Logo_2018.svg/2560px-VTB_Logo_2018.svg.png" alt="VTB Logo">
+      </div>
+
+      <!-- actions -->
+      <button class="rail-btn" data-bs-toggle="modal" data-bs-target="#createVacancyModal" title="Создать вакансию">
+        <i class="fas fa-plus"></i>
+      </button>
+      <button class="rail-btn" data-bs-toggle="modal" data-bs-target="#uploadRequirementsModal" title="Загрузить требования">
+        <i class="fas fa-upload"></i>
+      </button>
+      <button class="rail-btn" data-bs-toggle="modal" data-bs-target="#uploadResumeModal" title="Загрузить резюме">
+        <i class="fas fa-file-alt"></i>
+      </button>
+      <button class="rail-btn" id="refreshVacancies" title="Обновить вакансии">
+        <i class="fas fa-sync"></i>
+      </button>
+
+      <div style="flex:1"></div>
+      <button class="rail-btn" id="themeToggle" title="Тема (свет/тёмная)">
+        <i class="fas fa-moon"></i>
+      </button>
+
+      <div class="rail-label">ВТБ • HR</div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main" role="main">
+      <div class="header">
+        <div class="page-title">
+          <div>
+            <h1>Панель Работодателя</h1>
+            <div class="page-sub">Управление вакансиями и кандидатами — аккуратно и надёжно</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="search">
+            <i class="fas fa-search" style="color:var(--muted)"></i>
+            <input id="globalSearch" placeholder="Поиск вакансий / кандидатов..." />
+          </div>
+          <button class="btn btn-outline-light" id="newVacBtn" data-bs-toggle="modal" data-bs-target="#createVacancyModal">Новая вакансия</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- left: main tables -->
+        <section>
+          <div class="card">
+            <div class="title">
+              <h3><i class="fas fa-briefcase"></i> Вакансии</h3>
+              <div class="muted">Управляйте требованиями и резюме</div>
+            </div>
+
+            <div class="table-wrap">
+              <table id="vacanciesTable" class="display" style="width:100%">
+                <thead>
+                  <tr><th>ID</th><th>Название</th><th>Действия</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="title">
+              <h3><i class="fas fa-users"></i> Кандидаты</h3>
+              <div class="muted">Список кандидатов по выбранной вакансии</div>
+            </div>
+            <div class="table-wrap">
+              <table id="candidatesTable" class="display" style="width:100%">
+                <thead>
+                  <tr><th>ID</th><th>Имя</th><th>Действия</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- right: stats / actions -->
+        <aside>
+          <div class="card">
+            <div class="title">
+              <h3>Обзор</h3>
+              <div class="muted">Мгновенные показатели</div>
+            </div>
+
+            <div class="stat">
+              <div class="icon"><i class="fas fa-briefcase"></i></div>
+              <div>
+                <div class="info" id="statVacCount">—</div>
+                <div class="sub">Вакансии</div>
+              </div>
+            </div>
+
+            <div class="stat">
+              <div class="icon"><i class="fas fa-user-check"></i></div>
+              <div>
+                <div class="info" id="statCandCount">—</div>
+                <div class="sub">Кандидаты</div>
+              </div>
+            </div>
+
+            <div style="height:12px"></div>
+            <button class="btn-vtb w-100" id="openUploadReq">Загрузить требования</button>
+            <div style="height:8px"></div>
+            <button class="btn btn-outline-primary w-100" id="openUploadRes">Загрузить резюме</button>
+          </div>
+
+          <div class="card">
+            <div class="title">
+              <h3>Последние действия</h3>
+              <div class="muted">Лог событий</div>
+            </div>
+            <div id="activityLog" style="max-height:220px; overflow:auto; font-size:13px; color:var(--muted)"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <div class="modal fade" id="createVacancyModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3">
+        <div class="modal-header">
+          <h5 class="modal-title">Создать вакансию</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">Название</label>
+          <input id="vacancyTitle" type="text" class="form-control" placeholder="Например: Менеджер по продукту">
+          <div id="vacancyError" class="muted" style="color:#d33; margin-top:8px"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button class="btn-vtb" id="createVacancyBtn"><i class="fas fa-save me-2"></i> Создать</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="uploadRequirementsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3">
+        <div class="modal-header">
+          <h5 class="modal-title">Загрузить требования</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">Выберите вакансию</label>
+          <select id="reqVacancySelect" class="form-select mb-2"></select>
+          <label class="form-label">Файл</label>
+          <input id="reqFile" type="file" class="form-control" accept=".pdf,.docx,.txt">
+          <div id="reqError" class="muted" style="color:#d33; margin-top:8px"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <button class="btn-vtb" id="uploadReqBtn"><i class="fas fa-upload me-2"></i> Загрузить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="uploadResumeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3">
+        <div class="modal-header">
+          <h5 class="modal-title">Загрузить резюме</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">Выберите вакансию</label>
+          <select id="resVacancySelect" class="form-select mb-2"></select>
+          <label class="form-label">Файл</label>
+          <input id="resFile" type="file" class="form-control" accept=".pdf,.docx,.txt">
+          <div id="resError" class="muted" style="color:#d33; margin-top:8px"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <button class="btn-vtb" id="uploadResBtn"><i class="fas fa-upload me-2"></i> Загрузить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    // --- helpers & state ---
+    const socket = (typeof io === 'function') ? io() : null;
+    let vacancies = [];
+    let lastVacancyId = null;
+    let dtVacancies = null, dtCandidates = null;
+
+    const $vacTable = $('#vacanciesTable');
+    const $candTable = $('#candidatesTable');
+
+    // toast helper
+    function toast(message, type='info', delay=4000) {
+      const id = 't' + Date.now();
+      const color = (type === 'success') ? 'bg-success text-white' : (type === 'danger') ? 'bg-danger text-white' : 'bg-light';
+      const html = `
+        <div id="${id}" class="toast ${color} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="${delay}">
+          <div class="d-flex">
+            <div class="toast-body" style="min-width:220px">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+        </div>`;
+      $('#toasts').append(html);
+      const t = new bootstrap.Toast(document.getElementById(id));
+      t.show();
+      // cleanup
+      document.getElementById(id).addEventListener('hidden.bs.toast', () => { document.getElementById(id).remove(); });
+    }
+
+    function logActivity(text) {
+      const el = document.getElementById('activityLog');
+      const time = new Date().toLocaleTimeString();
+      el.insertAdjacentHTML('afterbegin', `<div style="padding:8px 0; border-bottom:1px solid rgba(0,0,0,0.04)"><strong style="color:var(--vtb-mid)">${time}</strong> — <span style="color:var(--muted)">${text}</span></div>`);
+    }
+
+    function safeSet(elId, html) {
+      const el = document.getElementById(elId);
+      if (el) el.innerHTML = html;
+    }
+
+    // --- UI initial ---
+    document.getElementById('refreshVacancies').addEventListener('click', () => { loadVacancies(true); toast('Обновление вакансий...', 'info'); });
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      toast('Тема переключена', 'success', 1400);
+    });
+    document.getElementById('openUploadReq').addEventListener('click', () => { const m = new bootstrap.Modal(document.getElementById('uploadRequirementsModal')); m.show(); });
+    document.getElementById('openUploadRes').addEventListener('click', () => { const m = new bootstrap.Modal(document.getElementById('uploadResumeModal')); m.show(); });
+
+    // create vacancy
+    document.getElementById('createVacancyBtn').addEventListener('click', createVacancy);
+    document.getElementById('uploadReqBtn').addEventListener('click', () => uploadFile('requirements'));
+    document.getElementById('uploadResBtn').addEventListener('click', () => uploadFile('resume'));
+
+    // global search: simple filter for both tables
+    let searchDebounce = null;
+    document.getElementById('globalSearch').addEventListener('input', (e) => {
+      clearTimeout(searchDebounce);
+      const q = e.target.value;
+      searchDebounce = setTimeout(() => {
+        if (dtVacancies) dtVacancies.search(q).draw();
+        if (dtCandidates) dtCandidates.search(q).draw();
+      }, 250);
+    });
+
+    // --- fetch & render ---
+    function loadVacancies(force=false) {
+      // show temporary skeleton / spinner
+      safeSet('statVacCount', '—');
+      safeSet('statCandCount', '—');
+      fetch('/get_vacancies')
+        .then(r => r.json())
+        .then(data => {
+          vacancies = Array.isArray(data) ? data : [];
+          renderVacanciesTable(vacancies);
+          populateSelects();
+          safeSet('statVacCount', vacancies.length);
+          logActivity('Вакансии обновлены');
+        })
+        .catch(err => {
+          console.error(err);
+          toast('Ошибка загрузки вакансий: ' + (err.message || err), 'danger');
+          safeSet('statVacCount', 'ошибка');
+        });
+    }
+
+    function renderVacanciesTable(data) {
+      // destroy old datatable if any
+      if (dtVacancies) {
+        dtVacancies.clear().rows.add(data).draw();
+        return;
+      }
+
+      dtVacancies = $vacTable.DataTable({
+        data,
+        columns: [
+          { data: 'id', title: 'ID', width:'8%' },
+          { data: 'title', title: 'Название' },
+          { data: null, title: 'Действия', orderable:false, width:'24%', render: d => {
+            return `
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="loadCandidates(${d.id})"><i class="fas fa-users me-1"></i> Кандидаты</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openUploadFor(${d.id})"><i class="fas fa-upload me-1"></i> Загрузить</button>
+              </div>
+            `;
+          } }
+        ],
+        pageLength: 6,
+        lengthChange:false,
+        language: { emptyTable: "Пусто", search: "Поиск:" },
+        dom: '<"top"f>rt<"bottom"ip><"clear">'
+      });
+    }
+
+    function populateSelects(){
+      const options = vacancies.length ? vacancies.map(v => `<option value="${v.id}">${escapeHtml(v.title)} (ID: ${v.id})</option>`).join('') : '<option value="">Нет вакансий</option>';
+      const req = document.getElementById('reqVacancySelect');
+      const res = document.getElementById('resVacancySelect');
+      if (req) req.innerHTML = options;
+      if (res) res.innerHTML = options;
+    }
+
+    function createVacancy(){
+      const title = (document.getElementById('vacancyTitle') || {}).value || '';
+      const errEl = document.getElementById('vacancyError');
+      if (!title.trim()) {
+        if (errEl) errEl.innerText = 'Введите название вакансии';
+        return;
+      }
+      if (errEl) errEl.innerText = '';
+      const btn = document.getElementById('createVacancyBtn');
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Создание...';
+
+      fetch('/create_vacancy', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title })
+      }).then(r => r.json()).then(data => {
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-2"></i> Создать';
+        if (data && data.success) {
+          toast('Вакансия создана', 'success');
+          const modal = bootstrap.Modal.getInstance(document.getElementById('createVacancyModal'));
+          if (modal) modal.hide();
+          document.getElementById('vacancyTitle').value = '';
+          loadVacancies();
+          logActivity('Создана вакансия: ' + title);
+        } else {
+          const errorMsg = (data && data.error) ? data.error : 'Ошибка создания';
+          if (errEl) errEl.innerText = errorMsg;
+          toast(errorMsg, 'danger');
+        }
+      }).catch(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-2"></i> Создать';
+        if (errEl) errEl.innerText = 'Ошибка: ' + err.message;
+        toast('Ошибка создания вакансии: ' + err.message, 'danger');
+      });
+    }
+
+    // upload file: type = 'requirements'|'resume'
+    function uploadFile(type){
+      const selectId = type === 'requirements' ? 'reqVacancySelect' : 'resVacancySelect';
+      const fileId = type === 'requirements' ? 'reqFile' : 'resFile';
+      const errorId = type === 'requirements' ? 'reqError' : 'resError';
+      const select = document.getElementById(selectId);
+      const fileEl = document.getElementById(fileId);
+      const errEl = document.getElementById(errorId);
+
+      if (!select || !fileEl) { toast('Внутренняя ошибка UI', 'danger'); return; }
+      const vacancyId = select.value;
+      const file = fileEl.files && fileEl.files[0];
+      if (!vacancyId || !file) { if (errEl) errEl.innerText = 'Выберите вакансию и файл'; return; }
+      if (errEl) errEl.innerText = '';
+
+      const btnId = (type === 'requirements') ? 'uploadReqBtn' : 'uploadResBtn';
+      const btn = document.getElementById(btnId);
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Загрузка...';
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', type);
+      fd.append('vacancy_id', vacancyId);
+
+      fetch('/upload', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          btn.disabled = false; btn.innerHTML = (type==='requirements') ? '<i class="fas fa-upload me-2"></i> Загрузить' : '<i class="fas fa-upload me-2"></i> Загрузить';
+          if (data && data.success) {
+            toast('Файл загружен', 'success');
+            const modalId = (type==='requirements') ? 'uploadRequirementsModal' : 'uploadResumeModal';
+            const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+            if (modal) modal.hide();
+            logActivity(`Загружен файл (${type}) для вакансии #${vacancyId}`);
+            if (data.summary) toast('Саммари: ' + data.summary, 'info', 1000);
+          } else {
+            const msg = (data && data.error) ? data.error : 'Ошибка загрузки';
+            if (errEl) errEl.innerText = msg;
+            toast(msg, 'danger');
+          }
+        })
+        .catch(err => {
+          btn.disabled = false; btn.innerHTML = (type==='requirements') ? '<i class="fas fa-upload me-2"></i> Загрузить' : '<i class="fas fa-upload me-2"></i> Загрузить';
+          if (errEl) errEl.innerText = 'Ошибка: ' + err.message;
+          toast('Ошибка загрузки: ' + err.message, 'danger');
+        });
+    }
+
+    // load candidates
+    function loadCandidates(vacancyId) {
+      lastVacancyId = vacancyId;
+      fetch(`/get_candidates/${vacancyId}`)
+        .then(r => r.json())
+        .then(data => {
+          renderCandidatesTable(Array.isArray(data) ? data : []);
+          safeSet('statCandCount', (data && data.length) ? data.length : 0);
+          logActivity(`Загружены кандидаты для вакансии #${vacancyId}`);
+        })
+        .catch(err => {
+          toast('Ошибка загрузки кандидатов: ' + err.message, 'danger');
+          safeSet('statCandCount', 'ошибка');
+        });
+    }
+
+    function renderCandidatesTable(data) {
+      if (dtCandidates) { dtCandidates.clear().rows.add(data).draw(); return; }
+      dtCandidates = $candTable.DataTable({
+        data,
+        columns: [
+          { data:'id', title:'ID', width:'12%' },
+          { data:'name', title:'Имя' },
+          { data:null, title:'Действия', orderable:false, width:'28%', render: d => `<button class="btn btn-sm btn-outline-success" onclick="viewInterview(${d.id})"><i class="fas fa-comment-dots me-1"></i> Интервью</button>` }
+        ],
+        pageLength:6,
+        lengthChange:false,
+        dom: '<"top"f>rt<"bottom"ip><"clear">'
+      });
+    }
+
+    function viewInterview(candidateId) {
+      fetch(`/get_interview/${candidateId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length>0) {
+            toast('Саммари интервью: ' + data[0].summary, 'info', 7000);
+            logActivity(`Просмотр интервью кандидата #${candidateId}`);
+          } else {
+            toast('Интервью не проведено', 'warning');
+          }
+        })
+        .catch(err => toast('Ошибка: ' + err.message, 'danger'));
+    }
+
+    // helper when clicking upload from vacancy row
+    function openUploadFor(vacancyId) {
+      // preselect vacancy and open modal for requirements
+      const req = document.getElementById('reqVacancySelect');
+      if (req) req.value = vacancyId;
+      const modal = new bootstrap.Modal(document.getElementById('uploadRequirementsModal'));
+      modal.show();
+    }
+
+    // small util
+    function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    // init load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadVacancies();
+      // small welcome toast
+      toast('Интерфейс загружен — добро пожаловать в ВТБ HR', 'success', 2600);
+      // attach refresh on table row click
+      $('#vacanciesTable').on('click', 'tbody tr', function(){ $(this).toggleClass('selected'); });
+    });
+  </script>
+</body>
+</html>

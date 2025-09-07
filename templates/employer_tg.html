@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>HR-Бот: Панель Работодателя</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.0.18/marked.min.js"></script>
+    <style>
+        body { font-family: 'Roboto', sans-serif; background: linear-gradient(135deg, #f0f4f8, #d9e2ec); transition: background-color 0.5s; }
+        .dark-mode { background: linear-gradient(135deg, #2b2d42, #1d3557); color: white; }
+        .dark-mode .card { background-color: #457b9d; color: white; }
+        .dark-mode .table { color: white; }
+        .dark-mode .toast { background-color: #343a40; color: white; }
+        .dark-mode .modal-content { background-color: #343a40; color: white; }
+        .dark-mode .modal-content h5, .dark-mode .modal-content p, .dark-mode .modal-content ul { color: white; }
+        .sidebar { height: 100vh; position: fixed; width: 260px; background: linear-gradient(180deg, #007bff, #0056b3); color: white; padding: 20px; box-shadow: 3px 0 10px rgba(0,0,0,0.3); }
+        .sidebar a { color: white; text-decoration: none; display: block; margin-bottom: 15px; font-size: 1.1em; padding: 10px; border-radius: 5px; transition: background 0.3s; }
+        .sidebar a:hover { background: rgba(255,255,255,0.2); color: #ffd700; }
+        .main-content { margin-left: 260px; padding: 30px; }
+        .card { box-shadow: 0 6px 12px rgba(0,0,0,0.15); border-radius: 15px; transition: transform 0.3s, box-shadow 0.3s; animation: fadeIn 1s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-primary { background: linear-gradient(to right, #007bff, #00bfff); border: none; padding: 10px 20px; font-size: 1em; }
+        .btn-primary:hover { background: linear-gradient(to right, #0056b3, #0099cc); }
+        .btn-warning { background: linear-gradient(to right, #ffc107, #ffca2c); border: none; }
+        .btn-warning:hover { background: linear-gradient(to right, #e0a800, #f7b731); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #343a40; color: white; }
+        .error-message { color: #dc3545; font-size: 0.9em; margin-top: 5px; }
+        .spinner-border { display: none; }
+        .loading .spinner-border { display: inline-block; }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; }
+        .table-responsive { overflow-x: auto; }
+        .modal-body.summary-content { max-height: 60vh; overflow-y: auto; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .dark-mode .modal-body.summary-content { background: #2c2f33; }
+        .modal-body.summary-content ul { padding-left: 20px; }
+        .modal-body.summary-content p, .modal-body.summary-content li { font-size: 1rem; line-height: 1.6; }
+        .modal-body.summary-content h1, .modal-body.summary-content h2, .modal-body.summary-content h3 { font-weight: 700; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <button class="btn theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> Тёмная тема</button>
+    <div class="toast-container">
+        <div id="notificationToast" class="toast" role="alert" data-bs-autohide="true" data-bs-delay="5000">
+            <div class="toast-body"></div>
+        </div>
+    </div>
+    <div class="sidebar">
+        <h4><i class="fas fa-briefcase"></i> Панель Работодателя</h4>
+        <a href="#" data-bs-toggle="modal" data-bs-target="#createVacancyModal"><i class="fas fa-plus"></i> Создать вакансию</a>
+        <a href="#" data-bs-toggle="modal" data-bs-target="#uploadRequirementsModal"><i class="fas fa-upload"></i> Загрузить требования</a>
+        <a href="#" data-bs-toggle="modal" data-bs-target="#uploadResumeModal"><i class="fas fa-file-alt"></i> Загрузить резюме</a>
+        <a href="#" onclick="loadVacancies()"><i class="fas fa-list"></i> Просмотреть вакансии</a>
+    </div>
+    <div class="main-content">
+        <h1><i class="fas fa-user-tie"></i> Панель Работодателя</h1>
+        <div id="errorMessage" class="error-message"></div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-briefcase"></i> Вакансии</h5>
+                        <table id="vacanciesTable" class="table table-striped">
+                            <thead><tr><th>ID</th><th>Название</th><th>Действия</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-users"></i> Кандидаты</h5>
+                        <div class="table-responsive">
+                            <table id="candidatesTable" class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Имя</th>
+                                        <th>Email</th>
+                                        <th>Телефон</th>
+                                        <th>Telegram</th>
+                                        <th>Код</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal fade" id="createVacancyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Создать вакансию</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input id="vacancyTitle" class="form-control" placeholder="Название вакансии">
+                    <div id="vacancyError" class="error-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary loading" onclick="createVacancy()"><i class="fas fa-save"></i> Создать <span class="spinner-border spinner-border-sm"></span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="uploadRequirementsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-upload"></i> Загрузить требования</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <select id="reqVacancySelect" class="form-select"></select>
+                    <input type="file" id="reqFile" class="form-control mt-2" accept=".pdf,.txt,.docx">
+                    <div id="reqError" class="error-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary loading" onclick="uploadFile('requirements')"><i class="fas fa-upload"></i> Загрузить <span class="spinner-border spinner-border-sm"></span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="uploadResumeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-file-alt"></i> Загрузить резюме</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <select id="resVacancySelect" class="form-select"></select>
+                    <input type="file" id="resFile" class="form-control mt-2" accept=".pdf,.txt,.docx">
+                    <div id="resError" class="error-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary loading" onclick="uploadFile('resume')"><i class="fas fa-upload"></i> Загрузить <span class="spinner-border spinner-border-sm"></span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="interviewSummaryModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-comment-dots"></i> Результаты интервью</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body summary-content" id="interviewSummaryContent">
+                    <!-- Markdown content will be rendered here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal"><i class="fas fa-times"></i> Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let vacancies = [];
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            document.querySelector('.theme-toggle').innerHTML = document.body.classList.contains('dark-mode') ? '<i class="fas fa-sun"></i> Светлая тема' : '<i class="fas fa-moon"></i> Тёмная тема';
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('notificationToast');
+            toast.querySelector('.toast-body').innerText = message;
+            toast.classList.toggle('bg-danger', isError);
+            toast.classList.toggle('bg-success', !isError);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerText = message;
+            showToast(message, true);
+        }
+
+        function clearErrors() {
+            document.getElementById('errorMessage').innerText = '';
+            document.getElementById('vacancyError').innerText = '';
+            document.getElementById('reqError').innerText = '';
+            document.getElementById('resError').innerText = '';
+        }
+
+        function loadVacancies() {
+            fetch('/get_vacancies').then(res => res.json()).then(data => {
+                if (data.error) {
+                    showError('errorMessage', data.error);
+                    return;
+                }
+                vacancies = data;
+                $('#vacanciesTable').DataTable({
+                    destroy: true,
+                    data,
+                    columns: [
+                        { data: 'id' },
+                        { data: 'title' },
+                        { data: null, render: data => `<button class="btn btn-sm btn-info" onclick="loadCandidates(${data.id})"><i class="fas fa-users"></i> Кандидаты</button>` }
+                    ]
+                });
+                populateVacancySelects();
+            }).catch(err => showError('errorMessage', 'Ошибка загрузки вакансий: ' + err.message));
+        }
+
+        function populateVacancySelects() {
+            const options = vacancies.length ? vacancies.map(v => `<option value="${v.id}">${v.title} (ID: ${v.id})</option>`).join('') : '<option value="">Нет вакансий</option>';
+            document.getElementById('reqVacancySelect').innerHTML = options;
+            document.getElementById('resVacancySelect').innerHTML = options;
+        }
+
+        function createVacancy() {
+            clearErrors();
+            const title = document.getElementById('vacancyTitle').value;
+            if (!title) return showError('vacancyError', 'Введите название');
+            const button = document.querySelector('#createVacancyModal .btn-primary');
+            button.classList.add('loading');
+            fetch('/create_vacancy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title})
+            }).then(res => res.json()).then(data => {
+                button.classList.remove('loading');
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('createVacancyModal')).hide();
+                    showToast(`Вакансия создана (ID: ${data.vacancy_id})`);
+                    loadVacancies();
+                } else {
+                    showError('vacancyError', data.error || 'Ошибка создания вакансии');
+                }
+            }).catch(err => {
+                button.classList.remove('loading');
+                showError('vacancyError', 'Ошибка: ' + err.message);
+            });
+        }
+
+        function uploadFile(type) {
+            clearErrors();
+            const selectId = type === 'requirements' ? 'reqVacancySelect' : 'resVacancySelect';
+            const fileId = type === 'requirements' ? 'reqFile' : 'resFile';
+            const errorId = type === 'requirements' ? 'reqError' : 'resError';
+            const vacancyId = document.getElementById(selectId).value;
+            const file = document.getElementById(fileId).files[0];
+            if (!vacancyId || !file) return showError(errorId, 'Выберите вакансию и файл');
+            const button = document.querySelector(`#${type === 'requirements' ? 'uploadRequirementsModal' : 'uploadResumeModal'} .btn-primary`);
+            button.classList.add('loading');
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('vacancy_id', vacancyId);
+            fetch('/upload', {method: 'POST', body: formData}).then(res => res.json()).then(data => {
+                button.classList.remove('loading');
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById(type === 'requirements' ? 'uploadRequirementsModal' : 'uploadResumeModal')).hide();
+                    showToast(`Файл загружен! Саммари: ${data.summary}`, false);
+                    if (type === 'resume') {
+                        showToast(`ID кандидата: ${data.candidate_id}\nКод аутентификации: ${data.auth_code}\nИмя: ${data.name}\nEmail: ${data.email || 'Не указан'}\nТелефон: ${data.phone || 'Не указан'}\nTelegram: ${data.telegram_handle || 'Не указан'}`, false);
+                    }
+                } else {
+                    showError(errorId, data.error || 'Ошибка загрузки');
+                }
+            }).catch(err => {
+                button.classList.remove('loading');
+                showError(errorId, 'Ошибка: ' + err.message);
+            });
+        }
+
+        function loadCandidates(vacancyId) {
+            if (!vacancyId) {
+                showError('errorMessage', 'Выберите вакансию');
+                return;
+            }
+            fetch(`/get_candidates/${vacancyId}`).then(res => res.json()).then(data => {
+                if (data.error) {
+                    showError('errorMessage', data.error);
+                    return;
+                }
+                $('#candidatesTable').DataTable({
+                    destroy: true,
+                    data,
+                    columns: [
+                        { data: 'id' },
+                        { data: 'name' },
+                        { data: 'email', render: data => data || 'Не указан' },
+                        { data: 'phone', render: data => data || 'Не указан' },
+                        { data: 'telegram_handle', render: data => data || 'Не указан' },
+                        { data: 'auth_code', render: data => data || 'Не сгенерирован' },
+                        { data: null, render: data => `
+                            <button class="btn btn-sm btn-success" onclick="viewInterview(${data.id})"><i class="fas fa-comment-dots"></i> Интервью</button>
+                            <button class="btn btn-sm btn-warning" onclick="regenerateAuthCode(${data.id})"><i class="fas fa-sync-alt"></i> Новый код</button>
+                        ` }
+                    ]
+                });
+            }).catch(err => showError('errorMessage', 'Ошибка загрузки кандидатов: ' + err.message));
+        }
+
+        function regenerateAuthCode(candidateId) {
+            const button = event.target;
+            button.classList.add('loading');
+            fetch(`/regenerate_auth_code/${candidateId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            }).then(res => {
+                button.classList.remove('loading');
+                if (!res.ok) {
+                    return res.text().then(text => {
+                        console.error(`Non-OK response: ${res.status} - ${text}`);
+                        throw new Error(`Ошибка сервера: ${res.status} ${res.statusText}`);
+                    });
+                }
+                const contentType = res.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return res.text().then(text => {
+                        console.error(`Expected JSON, got: ${text.substring(0, 50)}...`);
+                        throw new Error('Ожидался JSON, получен неверный формат ответа');
+                    });
+                }
+                return res.json();
+            }).then(data => {
+                if (data.success) {
+                    showToast(`Новый код аутентификации: ${data.new_auth_code}`, false);
+                    loadCandidates(document.getElementById('reqVacancySelect').value || document.getElementById('resVacancySelect').value);
+                } else {
+                    showError('errorMessage', data.error || 'Ошибка генерации кода');
+                }
+            }).catch(err => {
+                button.classList.remove('loading');
+                showError('errorMessage', `Ошибка: ${err.message}`);
+            });
+        }
+
+        function viewInterview(candidateId) {
+            fetch(`/get_interview/${candidateId}`).then(res => {
+                if (!res.ok) {
+                    return res.text().then(text => {
+                        console.error(`Non-OK response: ${res.status} - ${text}`);
+                        throw new Error(`Ошибка сервера: ${res.status} ${res.statusText}`);
+                    });
+                }
+                return res.json();
+            }).then(data => {
+                if (data.error) {
+                    showError('errorMessage', data.error);
+                } else if (data.length > 0) {
+                    const summary = data[0].summary + `\n\n**Соответствие вакансии**: ${data[0].match_percentage}%`;
+                    document.getElementById('interviewSummaryContent').innerHTML = marked.parse(summary);
+                    const modal = new bootstrap.Modal(document.getElementById('interviewSummaryModal'));
+                    modal.show();
+                } else {
+                    showToast('Интервью не проведено', true);
+                }
+            }).catch(err => showError('errorMessage', `Ошибка: ${err.message}`));
+        }
+
+        loadVacancies();
+    </script>
+</body>
+</html>

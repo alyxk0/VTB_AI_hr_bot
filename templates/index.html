@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Bot - Анна</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            flex: 1;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+        }
+
+        .chat-area {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .file-upload {
+            margin-bottom: 25px;
+        }
+
+        .file-upload h3 {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+            margin-bottom: 15px;
+        }
+
+        .upload-area:hover {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .upload-text {
+            color: white;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-status {
+            background: rgba(74, 222, 128, 0.2);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            color: white;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .summary-section {
+            margin-bottom: 25px;
+        }
+
+        .summary-section h4 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .summary-content {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .start-interview-btn {
+            background: linear-gradient(135deg, #4ade80, #16a34a);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 15px 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(74, 222, 128, 0.3);
+            width: 100%;
+        }
+
+        .start-interview-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(74, 222, 128, 0.4);
+        }
+
+        .start-interview-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        .chat-header h3 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-status {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background: #f8fafc;
+            max-height: 500px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message-content {
+            display: inline-block;
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #1f2937;
+            border-bottom-left-radius: 5px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .chat-input-area {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .voice-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .voice-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .voice-btn.recording {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            animation: pulse 2s infinite;
+        }
+
+        .voice-btn.processing {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .voice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .text-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .text-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .text-input:disabled {
+            background-color: #f3f4f6;
+            cursor: not-allowed;
+        }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            color: #6b7280;
+            font-style: italic;
+            padding: 15px;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .loading-dot {
+            width: 6px;
+            height: 6px;
+            background: #6b7280;
+            border-radius: 50%;
+            animation: loadingDot 1.5s infinite ease-in-out;
+        }
+
+        .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        .interview-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .control-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pause-btn {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .end-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes loadingDot {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .sidebar, .chat-area {
+                padding: 20px;
+            }
+        }
+
+        .progress-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-indicator">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🤖 HR-Бот Анна</h1>
+            <p>Интеллектуальное собеседование с ИИ</p>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="file-upload">
+                    <h3>📄 Загрузка резюме</h3>
+                    <div class="upload-area" id="resumeUpload">
+                        <div class="upload-text">
+                            Перетащите файл сюда или нажмите для выбора<br>
+                            <small>PDF, TXT, DOCX</small>
+                        </div>
+                        <input type="file" class="file-input" id="resumeFile" accept=".pdf,.txt,.docx">
+                    </div>
+                    <div class="file-status" id="resumeStatus"></div>
+                </div>
+
+                <div class="file-upload">
+                    <h3>📋 Требования вакансии</h3>
+                    <div class="upload-area" id="requirementsUpload">
+                        <div class="upload-text">
+                            Перетащите файл сюда или нажмите для выбора<br>
+                            <small>PDF, TXT, DOCX</small>
+                        </div>
+                        <input type="file" class="file-input" id="requirementsFile" accept=".pdf,.txt,.docx">
+                    </div>
+                    <div class="file-status" id="requirementsStatus"></div>
+                </div>
+
+                <div class="summary-section">
+                    <h4>📝 Резюме кандидата</h4>
+                    <div class="summary-content" id="resumeSummary">
+                        Саммари резюме появится здесь после загрузки файла...
+                    </div>
+                </div>
+
+                <div class="summary-section">
+                    <h4>🎯 Требования позиции</h4>
+                    <div class="summary-content" id="requirementsSummary">
+                        Саммари требований появится здесь после загрузки файла...
+                    </div>
+                </div>
+
+                <button class="start-interview-btn" id="startInterview" disabled>
+                    🚀 Начать собеседование
+                </button>
+
+                <div class="interview-controls" id="interviewControls" style="display: none;">
+                    <button class="control-btn pause-btn" id="pauseBtn">⏸️ Пауза</button>
+                    <button class="control-btn end-btn" id="endBtn">⏹️ Завершить</button>
+                </div>
+            </div>
+
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h3>💬 Собеседование</h3>
+                    <div class="chat-status" id="chatStatus">Загрузите файлы для начала</div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        <div class="message-content">
+                            Привет! Меня зовут Анна, я HR-бот. Загрузите резюме кандидата и требования к вакансии, чтобы мы могли начать собеседование.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <button class="voice-btn" id="voiceBtn" title="Голосовой ввод" disabled>🎤</button>
+                    <input type="text" class="text-input" id="textInput" placeholder="Введите сообщение или используйте голосовой ввод..." disabled>
+                    <button class="send-btn" id="sendBtn" title="Отправить" disabled>➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class HRBotClient {
+            constructor() {
+                this.sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+                this.socket = io();
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                this.interviewStarted = false;
+
+                this.initializeElements();
+                this.setupEventListeners();
+                this.setupSocketListeners();
+                this.setupDragAndDrop();
+
+                console.log('HR Bot Client initialized with session:', this.sessionId);
+            }
+
+            initializeElements() {
+                this.elements = {
+                    progressBar: document.getElementById('progressBar'),
+                    resumeUpload: document.getElementById('resumeUpload'),
+                    requirementsUpload: document.getElementById('requirementsUpload'),
+                    resumeFile: document.getElementById('resumeFile'),
+                    requirementsFile: document.getElementById('requirementsFile'),
+                    resumeStatus: document.getElementById('resumeStatus'),
+                    requirementsStatus: document.getElementById('requirementsStatus'),
+                    resumeSummary: document.getElementById('resumeSummary'),
+                    requirementsSummary: document.getElementById('requirementsSummary'),
+                    startInterview: document.getElementById('startInterview'),
+                    interviewControls: document.getElementById('interviewControls'),
+                    chatMessages: document.getElementById('chatMessages'),
+                    chatStatus: document.getElementById('chatStatus'),
+                    voiceBtn: document.getElementById('voiceBtn'),
+                    textInput: document.getElementById('textInput'),
+                    sendBtn: document.getElementById('sendBtn'),
+                    pauseBtn: document.getElementById('pauseBtn'),
+                    endBtn: document.getElementById('endBtn')
+                };
+            }
+
+            setupEventListeners() {
+                // File upload handlers
+                this.elements.resumeUpload.addEventListener('click', () => this.elements.resumeFile.click());
+                this.elements.requirementsUpload.addEventListener('click', () => this.elements.requirementsFile.click());
+
+                this.elements.resumeFile.addEventListener('change', (e) => this.handleFileUpload(e, 'resume'));
+                this.elements.requirementsFile.addEventListener('change', (e) => this.handleFileUpload(e, 'requirements'));
+
+                // Interview controls
+                this.elements.startInterview.addEventListener('click', () => this.startInterview());
+                this.elements.pauseBtn.addEventListener('click', () => this.pauseInterview());
+                this.elements.endBtn.addEventListener('click', () => this.endInterview());
+
+                // Chat controls
+                this.elements.voiceBtn.addEventListener('click', () => this.toggleVoiceRecording());
+                this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
+                this.elements.textInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+            }
+
+            setupSocketListeners() {
+                this.socket.on('connect', () => {
+                    console.log('Connected to server');
+                });
+
+                this.socket.on('connected', (data) => {
+                    console.log('Server response:', data.message);
+                });
+
+                this.socket.on('interview_started', (data) => {
+                    this.addMessage('bot', data.message);
+                    if (data.audio) {
+                        this.playAudio(data.audio);
+                    }
+                });
+
+                this.socket.on('error', (data) => {
+                    this.showError(data.message);
+                });
+            }
+
+            setupDragAndDrop() {
+                [this.elements.resumeUpload, this.elements.requirementsUpload].forEach(element => {
+                    element.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        element.classList.add('dragover');
+                    });
+
+                    element.addEventListener('dragleave', () => {
+                        element.classList.remove('dragover');
+                    });
+
+                    element.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        element.classList.remove('dragover');
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0) {
+                            const fileType = element === this.elements.resumeUpload ? 'resume' : 'requirements';
+                            this.handleFileUpload({target: {files}}, fileType);
+                        }
+                    });
+                });
+            }
+
+            async handleFileUpload(event, type) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const statusElement = type === 'resume' ? this.elements.resumeStatus : this.elements.requirementsStatus;
+                const summaryElement = type === 'resume' ? this.elements.resumeSummary : this.elements.requirementsSummary;
+
+                // Show progress
+                this.showProgress(30);
+                statusElement.textContent = `📁 ${file.name} - обработка...`;
+                statusElement.style.display = 'block';
+                statusElement.style.background = 'rgba(59, 130, 246, 0.2)';
+                statusElement.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('type', type);
+                    formData.append('session_id', this.sessionId);
+
+                    this.showProgress(60);
+
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    this.showProgress(90);
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Ошибка загрузки файла');
+                    }
+
+                    const data = await response.json();
+
+                    // Update UI
+                    statusElement.textContent = `✅ ${file.name} - успешно загружен`;
+                    statusElement.style.background = 'rgba(74, 222, 128, 0.2)';
+                    statusElement.style.borderColor = 'rgba(74, 222, 128, 0.3)';
+
+                    summaryElement.textContent = data.summary;
+
+                    this.showProgress(100);
+                    setTimeout(() => this.hideProgress(), 500);
+
+                    // Check if both files are loaded
+                    this.checkReadyToStart();
+
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    statusElement.textContent = `❌ Ошибка: ${error.message}`;
+                    statusElement.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusElement.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    this.hideProgress();
+                }
+            }
+
+            checkReadyToStart() {
+                const resumeLoaded = this.elements.resumeStatus.textContent.includes('✅');
+                const reqLoaded = this.elements.requirementsStatus.textContent.includes('✅');
+
+                if (resumeLoaded && reqLoaded) {
+                    this.elements.startInterview.disabled = false;
+                    this.elements.chatStatus.textContent = 'Готово к началу собеседования';
+                }
+            }
+
+            startInterview() {
+                this.interviewStarted = true;
+                this.elements.startInterview.style.display = 'none';
+                this.elements.interviewControls.style.display = 'flex';
+                this.elements.textInput.disabled = false;
+                this.elements.voiceBtn.disabled = false;
+                this.elements.sendBtn.disabled = false;
+                this.elements.chatStatus.textContent = 'Собеседование активно';
+
+                this.socket.emit('start_interview', { session_id: this.sessionId });
+            }
+
+            pauseInterview() {
+                this.addMessage('bot', 'Собеседование приостановлено. Нажмите "Начать собеседование" для продолжения.');
+            }
+
+            endInterview() {
+                this.interviewStarted = false;
+                this.elements.interviewControls.style.display = 'none';
+                this.elements.startInterview.style.display = 'block';
+                this.elements.startInterview.textContent = '🔄 Начать новое собеседование';
+                this.elements.startInterview.disabled = false;
+                this.elements.textInput.disabled = true;
+                this.elements.voiceBtn.disabled = true;
+                this.elements.sendBtn.disabled = true;
+                this.elements.chatStatus.textContent = 'Собеседование завершено';
+
+                this.addMessage('bot', 'Спасибо за участие в собеседовании! Результаты будут переданы HR-команде для дальнейшего рассмотрения.');
+            }
+
+            async toggleVoiceRecording() {
+                if (!this.isRecording) {
+                    await this.startVoiceRecording();
+                } else {
+                    this.stopVoiceRecording();
+                }
+            }
+
+            async startVoiceRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.audioChunks = [];
+
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        this.audioChunks.push(event.data);
+                    };
+
+                    this.mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                        await this.processVoiceInput(audioBlob);
+                    };
+
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+                    this.elements.voiceBtn.classList.add('recording');
+                    this.elements.voiceBtn.innerHTML = '⏹️';
+
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                    this.showError('Ошибка доступа к микрофону. Пожалуйста, используйте текстовый ввод.');
+                }
+            }
+
+            stopVoiceRecording() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    this.elements.voiceBtn.classList.remove('recording');
+                    this.elements.voiceBtn.classList.add('processing');
+                    this.elements.voiceBtn.innerHTML = '⏳';
+                }
+            }
+
+            async processVoiceInput(audioBlob) {
+                try {
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'recording.wav');
+                    formData.append('session_id', this.sessionId);
+
+                    const response = await fetch('/transcribe', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Ошибка транскрибации');
+                    }
+
+                    const data = await response.json();
+
+                    this.elements.voiceBtn.classList.remove('processing');
+                    this.elements.voiceBtn.innerHTML = '🎤';
+
+                    if (data.transcription) {
+                        this.elements.textInput.value = data.transcription;
+                        this.sendMessage();
+                    }
+
+                } catch (error) {
+                    console.error('Voice processing error:', error);
+                    this.elements.voiceBtn.classList.remove('processing');
+                    this.elements.voiceBtn.innerHTML = '🎤';
+                    this.showError('Ошибка обработки голоса');
+                }
+            }
+
+            async sendMessage() {
+                const message = this.elements.textInput.value.trim();
+                if (!message || !this.interviewStarted) return;
+
+                // Add user message
+                this.addMessage('user', message);
+                this.elements.textInput.value = '';
+
+                // Show loading
+                this.addLoadingMessage();
+
+                try {
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            session_id: this.sessionId
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Ошибка отправки сообщения');
+                    }
+
+                    const data = await response.json();
+
+                    // Remove loading and add response
+                    this.removeLoadingMessage();
+                    this.addMessage('bot', data.response);
+
+                    // Play audio if available
+                    if (data.audio) {
+                        this.playAudio(data.audio);
+                    }
+
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    this.removeLoadingMessage();
+                    this.showError('Ошибка при отправке сообщения');
+                }
+            }
+
+            addMessage(sender, content) {
+                const messagesContainer = this.elements.chatMessages;
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}`;
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                contentDiv.textContent = content;
+
+                messageDiv.appendChild(contentDiv);
+                messagesContainer.appendChild(messageDiv);
+
+                // Scroll to bottom
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            addLoadingMessage() {
+                const messagesContainer = this.elements.chatMessages;
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message bot loading-message';
+                loadingDiv.innerHTML = `
+                    <div class="loading">
+                        Анна думает
+                        <div class="loading-dots">
+                            <div class="loading-dot"></div>
+                            <div class="loading-dot"></div>
+                            <div class="loading-dot"></div>
+                        </div>
+                    </div>
+                `;
+                messagesContainer.appendChild(loadingDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            removeLoadingMessage() {
+                const loadingMessage = document.querySelector('.loading-message');
+                if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+            }
+
+            playAudio(audioData) {
+                try {
+                    const audioBlob = new Blob([
+                        new Uint8Array(atob(audioData).split('').map(c => c.charCodeAt(0)))
+                    ], { type: 'audio/mp3' });
+
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+
+                    audio.play().catch(error => {
+                        console.log('Auto-play blocked or audio error:', error);
+                    });
+                } catch (error) {
+                    console.error('Audio playback error:', error);
+                }
+            }
+
+            showProgress(percentage) {
+                this.elements.progressBar.style.width = percentage + '%';
+            }
+
+            hideProgress() {
+                this.elements.progressBar.style.width = '0%';
+            }
+
+            showError(message) {
+                // You can implement a better error display here
+                console.error('Error:', message);
+                this.addMessage('bot', `Ошибка: ${message}`);
+            }
+        }
+
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new HRBotClient();
+        });
+    </script>
+</body>
+</html>
