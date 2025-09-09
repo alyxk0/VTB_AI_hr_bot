@@ -1,5 +1,4 @@
 import uuid
-
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import openai
@@ -25,7 +24,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 openai.api_key = ""
 
 # Supabase конфигурация
-SUPABASE_URL = ""
+SUPABASE_URL = "https://aqasmjnynjayexpvwqlz.supabase.co"
 SUPABASE_KEY = ""
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -44,7 +43,6 @@ os.makedirs(VACANCIES_FOLDER, exist_ok=True)
 
 sessions = {}
 
-
 class HRBotSession:
     def __init__(self, session_id, vacancy_id, candidate_id):
         self.session_id = session_id
@@ -60,7 +58,6 @@ class HRBotSession:
         self.rudeness_detected = False
         self.skill_mismatch_count = 0
 
-
 def get_session(session_id):
     if session_id not in sessions:
         data = supabase.table('candidates').select('*').eq('id', session_id).execute().data
@@ -69,7 +66,6 @@ def get_session(session_id):
         candidate = data[0]
         sessions[session_id] = HRBotSession(session_id, candidate['vacancy_id'], session_id)
     return sessions[session_id]
-
 
 def read_file_text(file_path):
     try:
@@ -115,7 +111,6 @@ def read_file_text(file_path):
     except Exception as e:
         raise ValueError(f"Ошибка обработки файла: {str(e)}")
 
-
 def analyze_sentiment_and_skills(user_input, resume_summary, requirements_summary):
     prompt = (
         f"Анализируй сообщение кандидата на предмет грубости и соответствия навыкам:\n"
@@ -141,12 +136,16 @@ def analyze_sentiment_and_skills(user_input, resume_summary, requirements_summar
     except Exception as e:
         return "ошибка анализа", "ошибка анализа"
 
-
 def generate_summary(text, summary_type="resume"):
     prompt = (
-        f"Анализируй это резюме кандидата и извлеки ключевые моменты:\n- Имя, - Навыки, - Опыт, - Образование, - Проекты.\nСделай краткое саммари на русском с маркерами.\nТекст: {text}"
+        f"Анализируй это резюме кандидата и извлеки ключевые моменты:\n"
+        f"- Имя, - Навыки, - Опыт, - Образование, - Проекты.\n"
+        f"Сделай краткое саммари на русском с маркерами.\n"
+        f"Текст: {text}"
         if summary_type == "resume" else
-        f"Анализируй требования к вакансии: - Навыки, - Опыт, - Образование, - Другие.\nСделай краткое саммари на русском с маркерами.\nТекст: {text}"
+        f"Анализируй требования к вакансии: - Навыки, - Опыт, - Образование, - Другие.\n"
+        f"Сделай краткое саммари на русском с маркерами.\n"
+        f"Текст: {text}"
     )
     try:
         response = openai.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}],
@@ -155,17 +154,14 @@ def generate_summary(text, summary_type="resume"):
     except Exception as e:
         return f"Ошибка генерации саммари: {str(e)}"
 
-
 def generate_response(user_input, resume_summary, requirements_summary, conversation_history, session):
     sentiment, skills = analyze_sentiment_and_skills(user_input, resume_summary, requirements_summary)
-
     if sentiment == "грубость обнаружена":
         session.rudeness_detected = True
         return (
             "Ваше поведение недопустимо. Интервью завершено из-за проявления неуважения.",
             True  # Завершаем диалог
         )
-
     if skills == "навыки не подтверждены":
         session.skill_mismatch_count += 1
         if session.skill_mismatch_count >= 3: # Если 3 навыка не подтвердили, то завершаем
@@ -173,7 +169,6 @@ def generate_response(user_input, resume_summary, requirements_summary, conversa
                 "Ваши ответы не подтверждают необходимые навыки для этой вакансии. Интервью завершено.",
                 True
             )
-
     context = "\n".join([f"Пользователь: {entry['user']}\nБот: {entry['bot']}" for entry in
                          conversation_history[-5:]]) if conversation_history else ""
     prompt = (
@@ -186,7 +181,6 @@ def generate_response(user_input, resume_summary, requirements_summary, conversa
         return response.choices[0].message.content.strip(), False
     except Exception as e:
         return f"Ошибка генерации ответа: {str(e)}", False
-
 
 def calculate_match_percentage(resume_summary, requirements_summary, conversation_history):
     prompt = (
@@ -202,7 +196,6 @@ def calculate_match_percentage(resume_summary, requirements_summary, conversatio
         return max(0, min(100, percentage))  # Оцениваем челика от 0 до 100
     except Exception:
         return 50  # Иначе 50 с ошибкой
-
 
 def generate_interview_summary(resume_summary, requirements_summary, conversation_history, rudeness_detected,
                                skill_mismatch_count):
@@ -225,7 +218,6 @@ def generate_interview_summary(resume_summary, requirements_summary, conversatio
     except Exception as e:
         return f"Ошибка генерации саммари интервью: {str(e)}"
 
-
 def transcribe_audio(audio_data):
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         f.write(audio_data)
@@ -239,7 +231,6 @@ def transcribe_audio(audio_data):
         os.unlink(temp_filename)
         raise ValueError(f"Ошибка транскрипции: {str(e)}")
 
-
 def text_to_speech(text):
     try:
         response = openai.audio.speech.create(model=MODEL_TTS, voice=VOICE, input=text)
@@ -249,22 +240,18 @@ def text_to_speech(text):
     except Exception as e:
         raise ValueError(f"Ошибка генерации аудио: {str(e)}")
 
-
 # Роуты для страниц
 @app.route('/')
 def index():
     return "Добро пожаловать в HR-Бот! Выберите: <a href='/employer'>Работодатель</a> или <a href='/candidate'>Соискатель</a>"
 
-
 @app.route('/employer')
 def employer():
     return render_template('employer_tg.html')
 
-
 @app.route('/candidate')
 def candidate():
     return render_template('candidate_tg.html')
-
 
 # Роуты для данных
 @app.route('/get_vacancies', methods=['GET'])
@@ -274,7 +261,6 @@ def get_vacancies():
         return jsonify(data or [])
     except Exception as e:
         return jsonify({'error': f"Ошибка загрузки вакансий: {str(e)}"}), 500
-
 
 @app.route('/get_candidates/<vacancy_id>', methods=['GET'])
 def get_candidates(vacancy_id):
@@ -287,7 +273,6 @@ def get_candidates(vacancy_id):
     except Exception as e:
         return jsonify({'error': f"Ошибка загрузки кандидатов: {str(e)}"}), 500
 
-
 @app.route('/get_schedules/<candidate_id>', methods=['GET'])
 def get_schedules(candidate_id):
     try:
@@ -299,7 +284,6 @@ def get_schedules(candidate_id):
     except Exception as e:
         return jsonify({'error': f"Ошибка загрузки расписания: {str(e)}"}), 500
 
-
 @app.route('/get_interview/<candidate_id>', methods=['GET'])
 def get_interview(candidate_id):
     try:
@@ -310,7 +294,6 @@ def get_interview(candidate_id):
         return jsonify({'error': 'Неверный ID кандидата'}), 400
     except Exception as e:
         return jsonify({'error': f"Ошибка загрузки интервью: {str(e)}"}), 500
-
 
 @app.route('/create_vacancy', methods=['POST'])
 def create_vacancy():
@@ -325,7 +308,6 @@ def create_vacancy():
         return jsonify({'success': True, 'vacancy_id': vacancy_id, 'folder_path': folder_path})
     except Exception as e:
         return jsonify({'error': f"Ошибка создания вакансии: {str(e)}"}), 500
-
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -352,20 +334,33 @@ def upload():
             supabase.table('vacancies').update({'requirements_text': text, 'requirements_summary': summary}).eq('id',
                                                                                                                 vacancy_id).execute()
         elif file_type == 'resume':
+            # Генерируем уникальный код аутентификации и устанавливаем флаг использования
+            auth_code = str(uuid.uuid4())
             insert = supabase.table('candidates').insert(
-                {'name': safe_filename.split('.')[0], 'resume_text': text, 'resume_summary': summary,
-                 'vacancy_id': vacancy_id}).execute().data[0]
+                {
+                    'name': safe_filename.split('.')[0],
+                    'resume_text': text,
+                    'resume_summary': summary,
+                    'vacancy_id': vacancy_id,
+                    'auth_code': auth_code,
+                    'is_auth_code_used': False  # <-- Ключевое изменение: добавлен флаг
+                }
+            ).execute().data[0]
             candidate_id = insert['id']
             schedule_time = datetime.datetime.now() + datetime.timedelta(days=1)
             supabase.table('schedules').insert(
                 {'candidate_id': candidate_id, 'interview_time': schedule_time.isoformat()}).execute()
-            return jsonify({'success': True, 'candidate_id': candidate_id, 'summary': summary})
+            return jsonify({
+                'success': True,
+                'candidate_id': candidate_id,
+                'summary': summary,
+                'auth_code': auth_code  # Возвращаем код работодателю
+            })
         return jsonify({'success': True, 'summary': summary})
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f"Ошибка загрузки файла: {str(e)}"}), 500
-
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -409,7 +404,6 @@ def chat():
     except Exception as e:
         return jsonify({'error': f"Ошибка обработки чата: {str(e)}"}), 500
 
-
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     try:
@@ -424,21 +418,39 @@ def transcribe():
     except Exception as e:
         return jsonify({'error': f"Ошибка транскрипции: {str(e)}"}), 500
 
-
 # Socket.IO
 @socketio.on('connect')
 def handle_connect():
     emit('connected', {'message': 'Подключено'})
 
-
 @socketio.on('start_interview')
 def handle_start_interview(data):
     session_id = data.get('session_id')
+    auth_code = data.get('auth_code')  # <-- Получаем код из запроса
     try:
+        # Проверяем кандидата в БД
+        candidate_data = supabase.table('candidates').select('*').eq('id', session_id).execute().data
+        if not candidate_data:
+            emit('error', {'message': 'Кандидат не найден'})
+            return
+        candidate = candidate_data[0]
+
+        # --- КРИТИЧЕСКАЯ ПРОВЕРКА ---
+        if candidate['auth_code'] != auth_code:
+            emit('error', {'message': 'Неверный код аутентификации'})
+            return
+
+        if candidate['is_auth_code_used']:
+            emit('error', {'message': 'Код аутентификации уже использован. Обратитесь к работодателю за новым.'})
+            return
+
+        # Если проверка прошла, помечаем код как использованный
+        supabase.table('candidates').update({'is_auth_code_used': True}).eq('id', session_id).execute()
+
+        # Создаем сессию и начинаем интервью
         session = get_session(session_id)
-        candidate_data = supabase.table('candidates').select('*').eq('id', session_id).execute().data[0]
-        vacancy_data = supabase.table('vacancies').select('*').eq('id', candidate_data['vacancy_id']).execute().data[0]
-        session.resume_summary = candidate_data['resume_summary'] or ""
+        vacancy_data = supabase.table('vacancies').select('*').eq('id', candidate['vacancy_id']).execute().data[0]
+        session.resume_summary = candidate['resume_summary'] or ""
         session.requirements_summary = vacancy_data['requirements_summary'] or ""
         session.start_time = datetime.datetime.now()
         initial_message = "Привет! Меня зовут Анна. Расскажите о вашем опыте."
@@ -448,9 +460,9 @@ def handle_start_interview(data):
         os.unlink(audio_file)
         session.conversation_history.append({'user': '', 'bot': initial_message})
         emit('interview_started', {'message': initial_message, 'audio': audio_data})
+
     except Exception as e:
         emit('error', {'message': f"Ошибка старта интервью: {str(e)}"})
-
 
 @socketio.on('end_interview')
 def handle_end_interview(data):
@@ -487,9 +499,10 @@ def regenerate_auth_code(candidate_id):
             logging.warning(f"Candidate with id {candidate_id} not found")
             return jsonify({'error': 'Кандидат не найден'}), 404
         new_auth_code = str(uuid.uuid4())
+        # При генерации нового кода, сбрасываем флаг использования
         supabase.table('candidates').update({
             'auth_code': new_auth_code,
-            'is_auth_code_used': False
+            'is_auth_code_used': False  # <-- Ключевое изменение: сбрасываем флаг
         }).eq('id', candidate_id).execute()
         logging.info(f"New auth code generated for candidate_id {candidate_id}: {new_auth_code}")
         return jsonify({'success': True, 'new_auth_code': new_auth_code}), 200
