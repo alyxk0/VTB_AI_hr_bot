@@ -2,67 +2,290 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HR-Бот: Интервью для Соискателя</title>
+    <!-- Шрифты в стиле ВТБ -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap и иконки -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- jQuery и Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
     <style>
-        body { font-family: 'Roboto', sans-serif; background: linear-gradient(135deg, #28a745, #1d8c3a); color: white; transition: background-color 0.5s; }
-        .chat-container { max-width: 900px; margin: auto; padding: 30px; }
-        .chat-bubble { padding: 15px; margin: 15px 0; border-radius: 20px; box-shadow: 0 3px 8px rgba(0,0,0,0.2); animation: fadeIn 0.5s; }
-        .user-bubble { background: linear-gradient(to right, #ffffff, #f8f9fa); color: black; text-align: right; margin-left: 20%; }
-        .bot-bubble { background: linear-gradient(to right, #e9ecef, #dee2e6); color: black; text-align: left; margin-right: 20%; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .btn-primary { background: linear-gradient(to right, #28a745, #34c759); border: none; padding: 10px 20px; }
-        .btn-primary:hover { background: linear-gradient(to right, #218838, #28a745); }
-        #chat { height: 500px; overflow-y: scroll; border-radius: 15px; padding: 20px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; margin: 0 10px; }
-        .error-message { color: #dc3545; font-size: 0.9em; margin-top: 5px; }
-        .spinner-border { display: none; }
-        .loading .spinner-border { display: inline-block; }
-        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; }
+        :root {
+            --vTB-blue: #0F3E7E;
+            --vTB-blue-light: #E6F0FF;
+            --vTB-gray-bg: #F5F7FA;
+            --vTB-gray-text: #2D3748;
+            --vTB-border: #E2E8F0;
+        }
+
+        body {
+            font-family: 'Inter', 'Manrope', sans-serif;
+            background-color: var(--vTB-gray-bg);
+            color: var(--vTB-gray-text);
+            margin: 0;
+            padding: 0;
+            transition: all 0.3s ease;
+        }
+
+        .chat-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 2rem;
+        }
+
+        .section-title {
+            font-weight: 700;
+            color: var(--vTB-blue);
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            border-bottom: 2px solid var(--vTB-blue);
+            padding-bottom: 0.5rem;
+        }
+
+        .card {
+            border: 1px solid var(--vTB-border);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            transition: box-shadow 0.3s ease;
+            background-color: white;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .btn-vtb {
+            background-color: var(--vTB-blue);
+            border: none;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-vtb:hover {
+            background-color: #0C3268;
+            color: white;
+        }
+
+        .btn-vtb-outline {
+            background-color: transparent;
+            border: 1px solid var(--vTB-blue);
+            color: var(--vTB-blue);
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-vtb-outline:hover {
+            background-color: var(--vTB-blue);
+            color: white;
+        }
+
+        .btn-recording {
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            color: white !important;
+        }
+
+        #chat {
+            height: 500px;
+            overflow-y: auto;
+            border-radius: 8px;
+            padding: 1.5rem;
+            background-color: var(--vTB-blue-light);
+            border: 1px solid var(--vTB-border);
+            margin-bottom: 1.5rem;
+        }
+
+        .chat-bubble {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-bubble {
+            background-color: white;
+            color: var(--vTB-gray-text);
+            text-align: right;
+            margin-left: 20%;
+            border: 1px solid var(--vTB-border);
+        }
+
+        .bot-bubble {
+            background-color: white;
+            color: var(--vTB-gray-text);
+            text-align: left;
+            margin-right: 20%;
+            border: 1px solid var(--vTB-border);
+        }
+
+        .system-bubble {
+            background-color: #FFF3CD;
+            color: #856404;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #FFEAA7;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin: 0 10px;
+            background-color: var(--vTB-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .user-avatar {
+            background-color: #63B3ED;
+        }
+
+        .bot-avatar {
+            background-color: #4FD1C5;
+        }
+
+        .system-avatar {
+            background-color: #F6AD55;
+        }
+
+        .bubble-content {
+            flex: 1;
+        }
+
+        .error-message {
+            color: #DC3545;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.2em;
+        }
+
+        .loading .spinner-border {
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
+
+        .input-group .form-control {
+            border: 1px solid var(--vTB-border);
+            border-radius: 4px 0 0 4px;
+            padding: 0.75rem;
+        }
+
+        .input-group .btn {
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Toast для уведомлений */
+        .toast {
+            background-color: white;
+            border-left: 4px solid var(--vTB-blue);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .toast-header {
+            background-color: white;
+            color: var(--vTB-blue);
+            font-weight: 600;
+        }
+
+        .toast-body {
+            color: var(--vTB-gray-text);
+        }
     </style>
 </head>
 <body>
     <div class="chat-container">
-        <h1><i class="fas fa-comment-dots"></i> Интервью с HR-Ботом</h1>
+        <h1 class="section-title"><i class="fas fa-comment-dots me-2"></i>Интервью с HR-Ботом</h1>
         <div id="errorMessage" class="error-message"></div>
-        <div class="toast-container">
-            <div id="notificationToast" class="toast" role="alert" data-bs-autohide="true" data-bs-delay="3000">
+
+        <!-- Toast для уведомлений -->
+        <div class="toast-container position-fixed top-0 end-0 p-3">
+            <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+                <div class="toast-header">
+                    <strong class="me-auto">HR-Бот</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                </div>
                 <div class="toast-body"></div>
             </div>
         </div>
-        <div class="card" style="background: transparent; border: none;">
+
+        <div class="card">
             <div class="card-body">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#startInterviewModal"><i class="fas fa-play"></i> Начать интервью</button>
-                <button class="btn btn-secondary" onclick="endInterview()"><i class="fas fa-stop"></i> Завершить интервью</button>
-                <button class="btn btn-info" onclick="startRecording()"><i class="fas fa-microphone"></i> Голосовой ввод <span class="spinner-border spinner-border-sm"></span></button>
-                <div id="chat" class="mt-3"></div>
-                <div class="input-group mt-2">
-                    <input id="message" class="form-control" placeholder="Ваше сообщение...">
-                    <button class="btn btn-primary" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Отправить</button>
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-vtb" data-bs-toggle="modal" data-bs-target="#startInterviewModal">
+                        <i class="fas fa-play me-1"></i>Начать интервью
+                    </button>
+                    <button class="btn btn-vtb-outline" onclick="endInterview()">
+                        <i class="fas fa-stop me-1"></i>Завершить интервью
+                    </button>
+                    <button id="recordButton" class="btn btn-vtb-outline" onclick="startRecording()">
+                        <i class="fas fa-microphone me-1"></i>Голосовой ввод
+                    </button>
+                </div>
+
+                <div id="chat"></div>
+
+                <div class="input-group">
+                    <input id="message" class="form-control" placeholder="Введите ваш ответ...">
+                    <button class="btn btn-vtb" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane me-1"></i>Отправить
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal -->
+    <!-- Модальное окно: Начать интервью -->
     <div class="modal fade" id="startInterviewModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-play"></i> Начать интервью</h5>
+                    <h5 class="modal-title"><i class="fas fa-play me-2"></i>Начать интервью</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input id="candidateId" class="form-control mb-2" placeholder="Ваш ID кандидата">
-                    <input id="authCode" class="form-control" placeholder="Ваш код аутентификации">
+                    <div class="mb-3">
+                        <label for="candidateId" class="form-label">Ваш ID кандидата</label>
+                        <input id="candidateId" class="form-control" placeholder="Введите ваш ID">
+                    </div>
+                    <div class="mb-3">
+                        <label for="authCode" class="form-label">Код аутентификации</label>
+                        <input id="authCode" class="form-control" placeholder="Введите код">
+                    </div>
                     <div id="candidateError" class="error-message"></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary loading" onclick="startInterview()"><i class="fas fa-play"></i> Начать <span class="spinner-border spinner-border-sm"></span></button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-vtb loading" onclick="startInterview()">
+                        <i class="fas fa-play me-1"></i>Начать<span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -73,19 +296,26 @@
         let sessionId = null;
         let mediaRecorder;
         let audioChunks = [];
+        let recordButton = document.getElementById('recordButton');
 
         socket.on('connect', () => {
             showToast('Подключено к серверу', false);
         });
 
         socket.on('interview_started', data => {
-            addToChat('Бот', data.message, 'https://via.placeholder.com/40?text=Bot');
+            addToChat('Бот', data.message, 'B', 'bot');
+            // ИСПРАВЛЕНО: Правильный формат для base64 аудио
             const audio = new Audio('data:audio/mp3;base64,' + data.audio);
-            audio.play();
+            audio.play().catch(err => {
+                console.error('Ошибка воспроизведения аудио:', err);
+                showToast('Не удалось воспроизвести аудио. Проверьте настройки браузера.', true);
+            });
         });
 
         socket.on('interview_ended', data => {
-            addToChat('Система', `Интервью завершено. Саммари: ${data.summary}\nСоответствие: ${data.match_percentage}%`, 'https://via.placeholder.com/40?text=Sys');
+            const summaryMessage = `Интервью завершено.
+Соответствие вакансии: ${data.match_percentage}%`;
+            addToChat('Система', summaryMessage, 'S', 'system');
             showToast(`Интервью завершено (Соответствие: ${data.match_percentage}%)`, false);
             sessionId = null;
         });
@@ -94,117 +324,220 @@
             showError('errorMessage', data.message);
         });
 
+        // Функция для отображения toast-уведомлений
         function showToast(message, isError = false) {
             const toast = document.getElementById('notificationToast');
-            toast.querySelector('.toast-body').innerText = message;
-            toast.classList.toggle('bg-danger', isError);
-            toast.classList.toggle('bg-success', !isError);
+            const toastBody = toast.querySelector('.toast-body');
+            const toastHeader = toast.querySelector('.toast-header strong');
+
+            toastBody.innerText = message;
+            toastHeader.innerText = isError ? 'Ошибка' : 'Успех';
+
+            if (isError) {
+                toast.classList.add('bg-danger', 'text-white');
+                toast.classList.remove('bg-success');
+            } else {
+                toast.classList.add('bg-success', 'text-white');
+                toast.classList.remove('bg-danger');
+            }
+
             const bsToast = new bootstrap.Toast(toast);
             bsToast.show();
         }
 
+        // Функция для отображения ошибок
         function showError(elementId, message) {
             document.getElementById(elementId).innerText = message;
             showToast(message, true);
         }
 
+        // Функция для очистки всех ошибок
         function clearErrors() {
             document.getElementById('errorMessage').innerText = '';
             document.getElementById('candidateError').innerText = '';
         }
 
-        function addToChat(sender, message, avatar) {
+        // Функция для добавления сообщения в чат
+        function addToChat(sender, message, avatarText, type = 'bot') {
             const chat = document.getElementById('chat');
             const bubble = document.createElement('div');
-            bubble.classList.add('chat-bubble', sender === 'Вы' ? 'user-bubble' : 'bot-bubble');
-            bubble.innerHTML = `<img src="${avatar}" class="avatar" alt="${sender}">${sender}: ${message}`;
+            bubble.classList.add('chat-bubble');
+
+            if (type === 'user') {
+                bubble.classList.add('user-bubble');
+            } else if (type === 'system') {
+                bubble.classList.add('system-bubble');
+            } else {
+                bubble.classList.add('bot-bubble');
+            }
+
+            const avatarClass = type === 'user' ? 'user-avatar' : (type === 'system' ? 'system-avatar' : 'bot-avatar');
+            bubble.innerHTML = `
+                <div class="avatar ${avatarClass}">${avatarText}</div>
+                <div class="bubble-content">
+                    <strong>${sender}:</strong> ${message}
+                </div>
+            `;
+
             chat.appendChild(bubble);
             chat.scrollTop = chat.scrollHeight;
         }
 
+        // Функция для начала интервью
         function startInterview() {
             clearErrors();
-            sessionId = document.getElementById('candidateId').value;
-            const authCode = document.getElementById('authCode').value;
-            if (!sessionId || !authCode) return showError('candidateError', 'Введите ID кандидата и код аутентификации');
-            const button = document.querySelector('#startInterviewModal .btn-primary');
+            sessionId = document.getElementById('candidateId').value.trim();
+            const authCode = document.getElementById('authCode').value.trim();
+            if (!sessionId || !authCode) {
+                showError('candidateError', 'Пожалуйста, введите ваш ID кандидата и код аутентификации.');
+                return;
+            }
+
+            const button = document.querySelector('#startInterviewModal .btn-vtb');
             button.classList.add('loading');
+
             socket.emit('start_interview', {session_id: sessionId, auth_code: authCode});
-            bootstrap.Modal.getInstance(document.getElementById('startInterviewModal')).hide();
-            button.classList.remove('loading');
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('startInterviewModal'));
+            modal.hide();
+
+            // Сбрасываем состояние кнопки после небольшой задержки для UX
+            setTimeout(() => {
+                button.classList.remove('loading');
+            }, 1000);
         }
 
+        // Функция для отправки текстового сообщения
         function sendMessage() {
             clearErrors();
-            if (!sessionId) return showError('errorMessage', 'Сначала начните интервью');
-            const message = document.getElementById('message').value;
-            if (!message) return showError('errorMessage', 'Введите сообщение');
-            addToChat('Вы', message, 'https://via.placeholder.com/40?text=You');
-            const button = document.querySelector('.input-group .btn-primary');
+            if (!sessionId) {
+                showError('errorMessage', 'Пожалуйста, сначала начните интервью.');
+                return;
+            }
+
+            const message = document.getElementById('message').value.trim();
+            if (!message) {
+                showError('errorMessage', 'Пожалуйста, введите ваш ответ.');
+                return;
+            }
+
+            addToChat('Вы', message, 'Я', 'user');
+
+            const button = document.querySelector('.input-group .btn-vtb');
             button.classList.add('loading');
+
             fetch('/chat', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({session_id: sessionId, message})
-            }).then(res => res.json()).then(data => {
+            })
+            .then(res => res.json())
+            .then(data => {
                 button.classList.remove('loading');
                 if (data.error) {
                     showError('errorMessage', data.error);
                 } else {
-                    addToChat('Бот', data.response, 'https://via.placeholder.com/40?text=Bot');
+                    addToChat('Бот', data.response, 'B', 'bot');
+                    // ИСПРАВЛЕНО: Правильный формат для base64 аудио
                     const audio = new Audio('data:audio/mp3;base64,' + data.audio);
-                    audio.play();
+                    audio.play().catch(err => {
+                        console.error('Ошибка воспроизведения аудио:', err);
+                        showToast('Не удалось воспроизвести аудио. Проверьте настройки браузера.', true);
+                    });
                     if (data.end_interview) {
-                        addToChat('Система', `Интервью завершено. Саммари: ${data.summary}\nСоответствие: ${data.match_percentage}%`, 'https://via.placeholder.com/40?text=Sys');
+                        const summaryMessage = `Интервью завершено.
+Соответствие вакансии: ${data.match_percentage}%`;
+                        addToChat('Система', summaryMessage, 'S', 'system');
                         showToast(`Интервью завершено автоматически (Соответствие: ${data.match_percentage}%)`, data.response.includes('недопустимо') ? true : false);
                         sessionId = null;
                     }
                 }
-            }).catch(err => {
+            })
+            .catch(err => {
                 button.classList.remove('loading');
-                showError('errorMessage', 'Ошибка: ' + err.message);
+                showError('errorMessage', 'Ошибка сети: ' + err.message);
             });
+
             document.getElementById('message').value = '';
         }
 
+        // Функция для завершения интервью
         function endInterview() {
             clearErrors();
-            if (!sessionId) return showError('errorMessage', 'Интервью не начато');
+            if (!sessionId) {
+                showError('errorMessage', 'Интервью еще не начато.');
+                return;
+            }
+
             socket.emit('end_interview', {session_id: sessionId});
         }
 
+        // Функция для голосового ввода
         async function startRecording() {
             clearErrors();
+            const button = document.getElementById('recordButton');
+
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Меняем стиль кнопки, чтобы показать, что запись идет
+                button.classList.add('btn-recording');
+                button.innerHTML = '<i class="fas fa-stop-circle me-1"></i>Остановить запись';
+                showToast('Запись начата. Говорите...', false);
+
                 mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.start();
                 audioChunks = [];
                 mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+
                 mediaRecorder.addEventListener("stop", () => {
+                    // Возвращаем исходный вид кнопки
+                    button.classList.remove('btn-recording');
+                    button.innerHTML = '<i class="fas fa-microphone me-1"></i>Голосовой ввод';
+
                     const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                     const formData = new FormData();
                     formData.append('audio', audioBlob, 'voice.wav');
-                    const button = document.querySelector('.btn-info');
+
                     button.classList.add('loading');
-                    fetch('/transcribe', {method: 'POST', body: formData}).then(res => res.json()).then(data => {
+                    fetch('/transcribe', {method: 'POST', body: formData})
+                    .then(res => res.json())
+                    .then(data => {
                         button.classList.remove('loading');
                         if (data.transcription) {
                             document.getElementById('message').value = data.transcription;
-                            showToast('Транскрипция успешна', false);
+                            showToast('Транскрипция успешно выполнена', false);
                         } else {
-                            showError('errorMessage', data.error || 'Ошибка транскрипции');
+                            showError('errorMessage', data.error || 'Не удалось распознать речь.');
                         }
-                    }).catch(err => {
+                    })
+                    .catch(err => {
                         button.classList.remove('loading');
-                        showError('errorMessage', 'Ошибка: ' + err.message);
+                        showError('errorMessage', 'Ошибка сети: ' + err.message);
                     });
                 });
-                setTimeout(() => mediaRecorder.stop(), 5000);
+
+                mediaRecorder.start();
+
+                // Останавливаем запись через 5 секунд
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                        mediaRecorder.stop();
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                }, 5000);
+
             } catch (err) {
                 showError('errorMessage', 'Ошибка доступа к микрофону: ' + err.message);
+                // Убедимся, что кнопка вернулась в исходное состояние
+                button.classList.remove('btn-recording');
+                button.innerHTML = '<i class="fas fa-microphone me-1"></i>Голосовой ввод';
             }
         }
+
+        // Инициализация: получаем кнопку после загрузки DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            recordButton = document.getElementById('recordButton');
+        });
     </script>
 </body>
 </html>
